@@ -1,0 +1,18 @@
+{
+  "task_id": "T-1001",
+  "title": "订单查询支持金额上限并修正下限边界",
+  "description": "为订单查询增加 max_amount 上限筛选，并修正 min_amount 边界，使其包含等于下限的订单；不得改变状态筛选、排序分页与无筛选行为。",
+  "keywords": ["max_amount", "min_amount", "金额", "边界", "上限", "筛选", "订单"],
+  "target_files": ["business/app/orders.py"],
+  "expected_change": [
+    "list_orders 新增 max_amount 参数，按 amount <= max_amount 过滤",
+    "min_amount 过滤改为闭区间 amount >= min_amount"
+  ],
+  "must_preserve": [
+    "status 筛选仍只返回指定状态的订单",
+    "结果仍按 created_at 倒序",
+    "limit / offset 分页语义不变",
+    "非法 status 仍抛出 ValueError",
+    "不传筛选条件时仍返回全部订单"
+  ]
+}

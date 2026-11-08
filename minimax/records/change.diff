@@ -1,0 +1,32 @@
+--- a/orders.py
++++ b/orders.py
+@@ -1,4 +1,4 @@
+-"""订单查询服务（修改前快照，用于复现“目标测试先失败”）。"""
++"""订单查询服务。"""
+ 
+ from __future__ import annotations
+ 
+@@ -21,10 +21,11 @@
+     *,
+     status: Optional[str] = None,
+     min_amount: Optional[float] = None,
++    max_amount: Optional[float] = None,
+     limit: Optional[int] = None,
+     offset: int = 0,
+ ) -> Sequence[Order]:
+-    """按状态与金额下限筛选订单，按创建时间倒序返回。"""
++    """按状态与金额区间筛选订单，按创建时间倒序返回。"""
+     if status is not None and status not in VALID_STATUSES:
+         raise ValueError(f"unknown status: {status}")
+ 
+@@ -32,7 +33,9 @@
+     if status is not None:
+         result = [order for order in result if order.status == status]
+     if min_amount is not None:
+-        result = [order for order in result if order.amount > min_amount]
++        result = [order for order in result if order.amount >= min_amount]
++    if max_amount is not None:
++        result = [order for order in result if order.amount <= max_amount]
+ 
+     result.sort(key=lambda order: order.created_at, reverse=True)
+     if offset:

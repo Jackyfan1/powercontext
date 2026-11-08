@@ -1,0 +1,46 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_____________________ test_max_amount_filters_upper_bound _____________________
+
+orders = [Order(order_id='A-1001', status='paid', amount=100.0, created_at='2026-01-01T10:00:00'), Order(order_id='A-1002', sta...at='2026-01-04T10:00:00'), Order(order_id='A-1005', status='cancelled', amount=80.0, created_at='2026-01-05T10:00:00')]
+
+    @pytest.mark.target
+    def test_max_amount_filters_upper_bound(orders: list[Order]) -> None:
+        """目标功能：支持 max_amount 上限筛选（闭区间）。"""
+>       result = list_orders(orders, min_amount=100.0, max_amount=200.0)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: list_orders() got an unexpected keyword argument 'max_amount'. Did you mean 'min_amount'?
+
+tests\test_orders.py:24: TypeError
+______________________ test_min_amount_includes_boundary ______________________
+
+orders = [Order(order_id='A-1001', status='paid', amount=100.0, created_at='2026-01-01T10:00:00'), Order(order_id='A-1002', sta...at='2026-01-04T10:00:00'), Order(order_id='A-1005', status='cancelled', amount=80.0, created_at='2026-01-05T10:00:00')]
+
+    @pytest.mark.target
+    def test_min_amount_includes_boundary(orders: list[Order]) -> None:
+        """目标功能：min_amount 边界为闭区间，等于下限的订单必须保留。"""
+        result = list_orders(orders, status="paid", min_amount=150.0)
+>       assert [order.order_id for order in result] == ["A-1004", "A-1002"]
+E       AssertionError: assert ['A-1004'] == ['A-1004', 'A-1002']
+E         
+E         Right contains one more item: 'A-1002'
+E         
+E         Full diff: (-: missing in left side, +: extra in left side)
+E           [
+E               'A-1004',
+E         -     'A-1002',
+E           ]
+
+tests\test_orders.py:32: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_orders.py::test_max_amount_filters_upper_bound - TypeError: list_orders() got an unexpected keyword argument 'max_amount'. Did you mean 'min_amount'?
+FAILED tests/test_orders.py::test_min_amount_includes_boundary - AssertionError: assert ['A-1004'] == ['A-1004', 'A-1002']
+  
+  Right contains one more item: 'A-1002'
+  
+  Full diff: (-: missing in left side, +: extra in left side)
+    [
+        'A-1004',
+  -     'A-1002',
+    ]
+2 failed, 5 deselected in 0.25s

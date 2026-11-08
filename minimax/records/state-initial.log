@@ -1,0 +1,15 @@
+{
+  "saved": {
+    "task_id": "T-1001",
+    "status": "in_progress",
+    "done": [
+      "已导入订单查询规格、代码与测试资料"
+    ],
+    "todo": [
+      "使用 MiniMax 完成 max_amount 与边界修正",
+      "运行目标测试与回归测试"
+    ],
+    "verification": []
+  },
+  "state_db": "C:\\Users\\LENOVO\\Documents\\Trae-CN\\temp_20261108_04\\powercontext-eco\\minimax\\.run\\powercontext.db"
+}

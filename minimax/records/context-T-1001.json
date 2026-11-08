@@ -1,0 +1,191 @@
+{
+  "task": {
+    "task_id": "T-1001",
+    "title": "订单查询支持金额上限并修正下限边界",
+    "description": "为订单查询增加 max_amount 上限筛选，并修正 min_amount 边界，使其包含等于下限的订单；不得改变状态筛选、排序分页与无筛选行为。",
+    "keywords": [
+      "max_amount",
+      "min_amount",
+      "金额",
+      "边界",
+      "上限",
+      "筛选",
+      "订单"
+    ],
+    "target_files": [
+      "business/app/orders.py"
+    ],
+    "expected_change": [
+      "list_orders 新增 max_amount 参数，按 amount <= max_amount 过滤",
+      "min_amount 过滤改为闭区间 amount >= min_amount"
+    ],
+    "must_preserve": [
+      "status 筛选仍只返回指定状态的订单",
+      "结果仍按 created_at 倒序",
+      "limit / offset 分页语义不变",
+      "非法 status 仍抛出 ValueError",
+      "不传筛选条件时仍返回全部订单"
+    ]
+  },
+  "keywords": [
+    "max_amount",
+    "min_amount",
+    "金额",
+    "边界",
+    "上限",
+    "筛选",
+    "订单",
+    "订单查询支持金额上限并修正下限边界",
+    "单查",
+    "查询",
+    "询支",
+    "支持",
+    "持金",
+    "额上",
+    "限并",
+    "并修"
+  ],
+  "spec_items": [
+    {
+      "doc_id": "spec:order-query#S2",
+      "kind": "spec",
+      "path": "specs/order-query.md",
+      "symbol": "S2",
+      "title": "金额边界",
+      "lines": "7-10",
+      "version": 1,
+      "score": 14,
+      "content": "## S2 金额边界\n\n金额筛选为闭区间：`amount >= min_amount` 且 `amount <= max_amount`，等于边界的订单必须保留。"
+    },
+    {
+      "doc_id": "spec:order-query#S1",
+      "kind": "spec",
+      "path": "specs/order-query.md",
+      "symbol": "S1",
+      "title": "筛选维度",
+      "lines": "3-6",
+      "version": 1,
+      "score": 8,
+      "content": "## S1 筛选维度\n\n订单查询必须支持 `status`、`min_amount`、`max_amount` 三个筛选条件，三者可组合使用。"
+    },
+    {
+      "doc_id": "spec:order-query#S5",
+      "kind": "spec",
+      "path": "specs/order-query.md",
+      "symbol": "S5",
+      "title": "兼容性",
+      "lines": "19-21",
+      "version": 1,
+      "score": 2,
+      "content": "## S5 兼容性\n\n不传任何筛选条件时必须返回全部订单，既有调用方的行为不得改变。"
+    },
+    {
+      "doc_id": "spec:order-query#S0",
+      "kind": "spec",
+      "path": "specs/order-query.md",
+      "symbol": "S0",
+      "title": "order-query",
+      "lines": "1-2",
+      "version": 1,
+      "score": 1,
+      "content": "# 订单查询服务规格"
+    }
+  ],
+  "code_targets": [
+    {
+      "doc_id": "code:business/app/orders.py::list_orders",
+      "kind": "code",
+      "path": "business/app/orders.py",
+      "symbol": "list_orders",
+      "title": "FunctionDef list_orders",
+      "lines": "19-42",
+      "version": 1,
+      "score": 6,
+      "content": "def list_orders(\n    orders: Iterable[Order],\n    *,\n    status: Optional[str] = None,\n    min_amount: Optional[float] = None,\n    limit: Optional[int] = None,\n    offset: int = 0,\n) -> Sequence[Order]:\n    \"\"\"按状态与金额下限筛选订单，按创建时间倒序返回。\"\"\"\n    if status is not None and status not in VALID_STATUSES:\n        raise ValueError(f\"unknown status: {status}\")\n\n    result = list(orders)\n    if status is not None:\n        result = [order for order in result if order.status == status]\n    if min_amount is not None:\n        result = [order for order in result if order.amount > min_amount]\n\n    result.sort(key=lambda order: order.created_at, reverse=True)\n    if offset:\n        result = result[offset:]\n    if limit is not None:\n        result = result[:limit]\n    return result"
+    }
+  ],
+  "tests": [
+    {
+      "doc_id": "test:business/tests/test_orders.py::test_max_amount_filters_upper_bound",
+      "kind": "test",
+      "path": "business/tests/test_orders.py",
+      "symbol": "test_max_amount_filters_upper_bound",
+      "title": "目标功能：支持 max_amount 上限筛选（闭区间）。",
+      "lines": "21-25",
+      "version": 1,
+      "score": 15,
+      "content": "@pytest.mark.target\ndef test_max_amount_filters_upper_bound(orders: list[Order]) -> None:\n    \"\"\"目标功能：支持 max_amount 上限筛选（闭区间）。\"\"\"\n    result = list_orders(orders, min_amount=100.0, max_amount=200.0)\n    assert [order.order_id for order in result] == [\"A-1003\", \"A-1002\", \"A-1001\"]"
+    },
+    {
+      "doc_id": "test:business/tests/test_orders.py::test_min_amount_includes_boundary",
+      "kind": "test",
+      "path": "business/tests/test_orders.py",
+      "symbol": "test_min_amount_includes_boundary",
+      "title": "目标功能：min_amount 边界为闭区间，等于下限的订单必须保留。",
+      "lines": "28-32",
+      "version": 1,
+      "score": 14,
+      "content": "@pytest.mark.target\ndef test_min_amount_includes_boundary(orders: list[Order]) -> None:\n    \"\"\"目标功能：min_amount 边界为闭区间，等于下限的订单必须保留。\"\"\"\n    result = list_orders(orders, status=\"paid\", min_amount=150.0)\n    assert [order.order_id for order in result] == [\"A-1004\", \"A-1002\"]"
+    }
+  ],
+  "task_state": {
+    "task_id": "T-1001",
+    "done": [
+      "已导入订单查询规格、代码与测试资料"
+    ],
+    "todo": [
+      "使用 MiniMax 完成 max_amount 与边界修正",
+      "运行目标测试与回归测试"
+    ],
+    "verification": []
+  },
+  "sources": [
+    {
+      "doc_id": "spec:order-query#S2",
+      "path": "specs/order-query.md",
+      "lines": "7-10"
+    },
+    {
+      "doc_id": "spec:order-query#S1",
+      "path": "specs/order-query.md",
+      "lines": "3-6"
+    },
+    {
+      "doc_id": "spec:order-query#S5",
+      "path": "specs/order-query.md",
+      "lines": "19-21"
+    },
+    {
+      "doc_id": "spec:order-query#S0",
+      "path": "specs/order-query.md",
+      "lines": "1-2"
+    },
+    {
+      "doc_id": "code:business/app/orders.py::list_orders",
+      "path": "business/app/orders.py",
+      "lines": "19-42"
+    },
+    {
+      "doc_id": "test:business/tests/test_orders.py::test_max_amount_filters_upper_bound",
+      "path": "business/tests/test_orders.py",
+      "lines": "21-25"
+    },
+    {
+      "doc_id": "test:business/tests/test_orders.py::test_min_amount_includes_boundary",
+      "path": "business/tests/test_orders.py",
+      "lines": "28-32"
+    }
+  ],
+  "storage": {
+    "host": "127.0.0.1",
+    "port": 2881,
+    "database": "sdd_context",
+    "server_version": "5.7.25-OceanBase seekdb-v1.4.0.0",
+    "documents": {
+      "code": 2,
+      "spec": 6,
+      "test": 7
+    },
+    "checked_at": "2026-11-08T19:31:17"
+  }
+}

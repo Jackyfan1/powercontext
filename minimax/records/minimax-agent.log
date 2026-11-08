@@ -1,0 +1,19 @@
+{
+  "applied": "C:\\Users\\LENOVO\\Documents\\Trae-CN\\temp_20261108_04\\powercontext-eco\\minimax\\business\\app\\orders.py",
+  "elapsed_ms": 3265,
+  "usage": {
+    "total_tokens": 1454,
+    "total_characters": 0,
+    "prompt_tokens": 1080,
+    "completion_tokens": 374,
+    "completion_tokens_details": {
+      "reasoning_tokens": 62
+    },
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    }
+  },
+  "diff": "C:\\Users\\LENOVO\\Documents\\Trae-CN\\temp_20261108_04\\powercontext-eco\\minimax\\records\\change.diff",
+  "session": "C:\\Users\\LENOVO\\Documents\\Trae-CN\\temp_20261108_04\\powercontext-eco\\minimax\\records\\minimax-session.json",
+  "dev_record": "C:\\Users\\LENOVO\\Documents\\Trae-CN\\temp_20261108_04\\powercontext-eco\\minimax\\records\\dev-record.md"
+}

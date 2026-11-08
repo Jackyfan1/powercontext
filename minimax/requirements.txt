@@ -1,0 +1,5 @@
+# 运行依赖（Python 3.12+，已在 3.14 实测）
+powercontext[builtin]==1.2.0
+pymysql>=1.1
+requests>=2.31
+pytest>=8.0

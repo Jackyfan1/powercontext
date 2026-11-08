@@ -1,0 +1,22 @@
+# 开发上下文 · T-1001 订单查询支持金额上限并修正下限边界
+
+- 任务描述：为订单查询增加 max_amount 上限筛选，并修正 min_amount 边界，使其包含等于下限的订单；不得改变状态筛选、排序分页与无筛选行为。
+- 检索关键词：max_amount, min_amount, 金额, 边界, 上限, 筛选, 订单, 订单查询支持金额上限并修正下限边界, 单查, 查询, 询支, 支持
+
+## 适用的规格条目
+- `spec:order-query#S2`（v1，specs/order-query.md#L7-10）：金额边界
+- `spec:order-query#S1`（v1，specs/order-query.md#L3-6）：筛选维度
+- `spec:order-query#S5`（v1，specs/order-query.md#L19-21）：兼容性
+- `spec:order-query#S0`（v1，specs/order-query.md#L1-2）：order-query
+
+## 需要修改的代码
+- `business/app/orders.py#L19-42` `list_orders`（v1，score=6）
+
+## 用于验证的测试
+- `business/tests/test_orders.py#L21-25` `test_max_amount_filters_upper_bound`（v1）：目标功能：支持 max_amount 上限筛选（闭区间）。
+- `business/tests/test_orders.py#L28-32` `test_min_amount_includes_boundary`（v1）：目标功能：min_amount 边界为闭区间，等于下限的订单必须保留。
+
+## 任务状态（PowerContext）
+- 已完成：['已导入订单查询规格、代码与测试资料']
+- 待办：['使用 MiniMax 完成 max_amount 与边界修正', '运行目标测试与回归测试']
+- 已有验证结果：无
