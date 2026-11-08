@@ -21,6 +21,7 @@ import hashlib
 import io
 import math
 import re
+import unicodedata
 from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -40,20 +41,166 @@ if TYPE_CHECKING:
 
 PDF_PAGE_SOURCE_NAME = "pdf-page"
 
+_FISCAL_YEAR = re.compile(r"fy(\d{2}|\d{4})")
+
 _SEARCH_RESULT_LIMIT = 50
 _MAX_QUERY_VARIANTS = 12
 _BM25_K1 = 1.2
 _BM25_B = 0.75
 _PROXIMITY_WINDOW = 6
-_PROXIMITY_WEIGHT = 0.4
+_PROXIMITY_WEIGHT = 0.25
+_ADJACENT_WEIGHT = 0.8
+_HEADING_TOKENS = 30
+_HEADING_WEIGHT = 0.8
 _MIN_PREFIX_LENGTH = 4
 _SUFFIX_MARGIN = 4
 _MAX_PREFIX_MATCHES = 24
 _SYNONYM_WEIGHT = 0.45
-_STATEMENT_BONUS_RATIO = 0.8
-_STATEMENT_NUMERIC_RATIO = 0.1
-_STATEMENT_HEADING_TOKENS = 48
-_PAGE_ADJACENCY_WEIGHT = 0.12
+_STATEMENT_BONUS_RATIO = 1.0
+_STATEMENT_NUMERIC_RATIO = 0.08
+_STATEMENT_HEADING_TOKENS = 80
+_IMPLIED_STATEMENT_WEIGHT = 0.6
+_LEXICAL_SLOTS = 10
+_STATEMENT_SLOTS = 6
+_NEIGHBOUR_SOURCES = 6
+_NEIGHBOUR_SLOTS = 4
+_STATEMENT_HEADING_POSITION = 40
+
+_STATEMENT_KINDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("balance", ("balancesheet",)),
+    (
+        "income",
+        (
+            "statementofincome",
+            "statementsofincome",
+            "statementofearnings",
+            "statementsofearnings",
+            "statementofoperations",
+            "statementsofoperations",
+            "statementofprofitandloss",
+            "statementofprofitandlossandcomprehensiveincome",
+        ),
+    ),
+    ("cash", ("statementofcashflows", "statementsofcashflows")),
+    (
+        "equity",
+        (
+            "statementofequity",
+            "statementsofequity",
+            "statementofstockholdersequity",
+            "statementsofstockholdersequity",
+            "statementofshareholdersequity",
+            "statementsofshareholdersequity",
+        ),
+    ),
+)
+
+_EXPLICIT_STATEMENT_PHRASES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "balance",
+        (
+            "balance sheet",
+            "balance sheets",
+            "quick ratio",
+            "current ratio",
+            "liquidity ratio",
+            "working capital",
+            "book value",
+        ),
+    ),
+    (
+        "income",
+        (
+            "income statement",
+            "income statements",
+            "statement of income",
+            "statements of income",
+            "statement of operations",
+            "statements of operations",
+            "statement of earnings",
+            "p&l",
+            "profit and loss",
+        ),
+    ),
+    (
+        "cash",
+        (
+            "cash flow statement",
+            "cash flows statement",
+            "statement of cash flows",
+            "statements of cash flows",
+            "cash flow",
+            "cash flows",
+        ),
+    ),
+    (
+        "equity",
+        (
+            "statement of equity",
+            "statements of equity",
+            "statement of stockholders equity",
+            "statements of stockholders equity",
+            "statement of shareholders equity",
+        ),
+    ),
+)
+
+_IMPLIED_STATEMENT_TERMS: tuple[tuple[str, frozenset[str]], ...] = (
+    (
+        "income",
+        frozenset({
+            "earnings",
+            "ebitda",
+            "eps",
+            "expense",
+            "expenses",
+            "income",
+            "margin",
+            "margins",
+            "operating",
+            "profit",
+            "revenue",
+            "revenues",
+            "sales",
+            "tax",
+            "taxes",
+        }),
+    ),
+    (
+        "cash",
+        frozenset({
+            "amortization",
+            "buyback",
+            "buybacks",
+            "capex",
+            "depreciation",
+            "dividend",
+            "dividends",
+            "fcf",
+            "repurchase",
+            "repurchases",
+        }),
+    ),
+    (
+        "balance",
+        frozenset({
+            "asset",
+            "assets",
+            "debt",
+            "inventories",
+            "inventory",
+            "liabilities",
+            "liability",
+            "payable",
+            "payables",
+            "ppe",
+            "ppne",
+            "receivable",
+            "receivables",
+        }),
+    ),
+    ("equity", frozenset({"equity", "shareholders", "stockholders"})),
+)
 
 _GEOGRAPHY_SYNONYMS = (
     "region",
@@ -83,6 +230,11 @@ _FINANCIAL_QUERY_SYNONYMS: dict[str, tuple[str, ...]] = {
     "sales": ("revenue", "sales", "net"),
     "expenses": ("expense", "expenses", "costs", "cost"),
     "costs": ("cost", "costs", "expenses", "expense"),
+    "ppne": ("property", "plant", "equipment"),
+    "ppe": ("property", "plant", "equipment"),
+    "fcf": ("free", "cash", "flow", "flows"),
+    "cogs": ("cost", "goods", "sold"),
+    "sga": ("selling", "general", "administrative"),
 }
 
 _FUNCTION_WORDS = frozenset({
@@ -299,7 +451,7 @@ async def search_pdf_pages(
     if not terms:
         return ()
     candidates = await _memory_candidates(memory, question)
-    ranked = _rank_candidates(candidates, terms)
+    ranked = _rank_candidates(candidates, terms, question)
     matches: list[MemoryCitation] = []
     seen_pages: set[object] = set()
     for citation, page_key in ranked:
@@ -383,6 +535,7 @@ def _entry_page_key(sources: tuple[object, ...], /) -> tuple[str, int, str] | No
 def _rank_candidates(
     candidates: tuple[_Candidate, ...],
     terms: tuple[str, ...],
+    question: str,
 ) -> list[tuple[MemoryCitation, object | None]]:
     """Rank candidates with BM25 over morphologically expanded query terms."""
 
@@ -408,7 +561,8 @@ def _rank_candidates(
     )
     weights = {expansion.term: idf for expansion, idf in zip(expansions, idf_scores, strict=True)}
     pairs = _term_pairs(terms)
-    markers = _statement_markers(terms)
+    requested = _requested_statement_kinds(question, terms)
+    kinds = tuple(_statement_kinds(tokens) for tokens in page_tokens)
     scores: list[float] = []
     for index, counts in enumerate(token_counts):
         length = lengths[index]
@@ -421,10 +575,59 @@ def _rank_candidates(
             score += idf * (frequency * (_BM25_K1 + 1.0)) / (frequency + normalization)
         score += _proximity_bonus(pairs, weights, variants_by_term, token_positions[index])
         scores.append(score)
-    _apply_statement_bonus(scores, page_tokens, markers)
-    _apply_adjacency_bonus(scores, candidates)
+    _apply_heading_bonus(scores, page_tokens, terms, weights, variants_by_term)
+    _apply_statement_bonus(scores, kinds, requested)
     ordered = sorted(range(total), key=lambda index: (-scores[index], candidates[index].citation.entry_version_id))
-    return [(candidates[index].citation, candidates[index].page_key) for index in ordered]
+    selected = _select_pages(ordered, candidates, kinds, requested, scores)
+    return [(candidates[index].citation, candidates[index].page_key) for index in selected]
+
+
+def _select_pages(
+    ordered: list[int],
+    candidates: tuple[_Candidate, ...],
+    kinds: tuple[tuple[tuple[str, int], ...], ...],
+    requested: dict[str, float],
+    scores: list[float],
+) -> list[int]:
+    """Reserve result slots for financial statements and for pages continuing a strong page."""
+
+    selected = ordered[:_LEXICAL_SLOTS]
+    seen = set(selected)
+    primary: list[tuple[int, int, float, int]] = []
+    for index in ordered:
+        entries = kinds[index]
+        if not entries:
+            continue
+        kind, position = min(entries, key=lambda item: item[1])
+        if position > _STATEMENT_HEADING_POSITION:
+            continue
+        primary.append((0 if kind in requested else 1, position, -scores[index], index))
+    primary.sort()
+    for *_, index in primary[:_STATEMENT_SLOTS]:
+        if index not in seen:
+            selected.append(index)
+            seen.add(index)
+    indexes = {
+        candidate.page_key: index
+        for index, candidate in enumerate(candidates)
+        if isinstance(candidate.page_key, tuple) and len(candidate.page_key) == 3
+    }
+    added = 0
+    for index in ordered[:_NEIGHBOUR_SOURCES]:
+        key = candidates[index].page_key
+        if not isinstance(key, tuple) or len(key) != 3:
+            continue
+        digest, page_number, document = key
+        for neighbour in (page_number - 1, page_number + 1):
+            if added >= _NEIGHBOUR_SLOTS:
+                break
+            other = indexes.get((digest, neighbour, document))
+            if other is not None and other not in seen:
+                selected.append(other)
+                seen.add(other)
+                added += 1
+    selected.extend(index for index in ordered if index not in seen)
+    return selected
 
 
 def _proximity_bonus(
@@ -445,82 +648,90 @@ def _proximity_bonus(
         right_positions = _variant_positions(variants_by_term[right], positions)
         if not right_positions:
             continue
-        if _within_window(left_positions, right_positions):
-            bonus += _PROXIMITY_WEIGHT * (weights[left] + weights[right]) / 2.0
+        gap = _closest_gap(left_positions, right_positions)
+        if gap is None or gap > _PROXIMITY_WINDOW:
+            continue
+        weight = (weights[left] + weights[right]) / 2.0
+        bonus += weight * (_ADJACENT_WEIGHT if gap <= 1 else _PROXIMITY_WEIGHT)
     return bonus
+
+
+def _apply_heading_bonus(
+    scores: list[float],
+    page_tokens: tuple[tuple[str, ...], ...],
+    terms: tuple[str, ...],
+    weights: dict[str, float],
+    variants_by_term: dict[str, tuple[str, ...]],
+) -> None:
+    """Prefer pages whose opening heading names the terms the question asks about."""
+
+    if not terms:
+        return
+    for index, tokens in enumerate(page_tokens):
+        heading = set(tokens[:_HEADING_TOKENS])
+        matched = [term for term in terms if heading.intersection(variants_by_term[term])]
+        if matched:
+            scores[index] += _HEADING_WEIGHT * sum(weights.get(term, 0.0) for term in matched)
 
 
 def _apply_statement_bonus(
     scores: list[float],
-    page_tokens: tuple[tuple[str, ...], ...],
-    markers: tuple[tuple[str, ...], ...],
+    kinds: tuple[tuple[tuple[str, int], ...], ...],
+    requested: dict[str, float],
 ) -> None:
     """Prefer pages that are themselves the primary statement a question asks about."""
 
-    if not markers or not scores:
+    if not requested or not scores:
         return
     highest = max(scores)
     if highest <= 0.0:
         return
-    bonus = highest * _STATEMENT_BONUS_RATIO
-    for index, tokens in enumerate(page_tokens):
-        if _is_statement_page(tokens, markers):
-            scores[index] += bonus
+    for index, page_kinds in enumerate(kinds):
+        weight = max((requested[kind] for kind, _position in page_kinds if kind in requested), default=0.0)
+        if weight:
+            scores[index] += highest * _STATEMENT_BONUS_RATIO * weight
 
 
-def _apply_adjacency_bonus(scores: list[float], candidates: tuple[_Candidate, ...]) -> None:
-    """Prefer pages next to the strongest page because statements commonly continue over a page break."""
+def _statement_kinds(tokens: tuple[str, ...], /) -> tuple[tuple[str, int], ...]:
+    """Return each primary financial statement a page presents and where its heading starts."""
 
-    indexes: dict[tuple[str, int, str], int] = {}
-    for index, candidate in enumerate(candidates):
-        key = candidate.page_key
-        if isinstance(key, tuple) and len(key) == 3 and isinstance(key[1], int):
-            indexes[key] = index
-    boosts: list[tuple[int, float]] = []
-    for index, candidate in enumerate(candidates):
-        key = candidate.page_key
-        if not isinstance(key, tuple) or len(key) != 3:
-            continue
-        digest, page_number, document = key
-        neighbours = [
-            scores[neighbour]
-            for offset in (-1, 1)
-            if (neighbour := indexes.get((digest, page_number + offset, document))) is not None
-        ]
-        if neighbours:
-            boosts.append((index, max(neighbours) * _PAGE_ADJACENCY_WEIGHT))
-    for index, boost in boosts:
-        scores[index] += boost
-
-
-def _is_statement_page(tokens: tuple[str, ...], markers: tuple[tuple[str, ...], ...]) -> bool:
     if not tokens:
-        return False
+        return ()
     numeric = sum(1 for token in tokens if token.isdigit())
     if numeric / len(tokens) < _STATEMENT_NUMERIC_RATIO:
-        return False
-    heading = tokens[:_STATEMENT_HEADING_TOKENS]
-    return any(_contains_subsequence(heading, marker) for marker in markers)
+        return ()
+    head = tokens[:_STATEMENT_HEADING_TOKENS]
+    offsets: list[int] = []
+    position = 0
+    for token in head:
+        offsets.append(position)
+        position += len(token)
+    joined = "".join(head)
+    found: list[tuple[str, int]] = []
+    for kind, markers in _STATEMENT_KINDS:
+        start = min((offset for marker in markers if (offset := joined.find(marker)) >= 0), default=None)
+        if start is None:
+            continue
+        found.append((kind, bisect.bisect_right(offsets, start) - 1))
+    if len(found) > 1:
+        # A page that heads several statements at once is an index page, not a statement.
+        return ()
+    return tuple(found)
 
 
-def _contains_subsequence(tokens: tuple[str, ...], marker: tuple[str, ...]) -> bool:
-    width = len(marker)
-    return any(tokens[start : start + width] == marker for start in range(len(tokens) - width + 1))
+def _requested_statement_kinds(question: str, terms: tuple[str, ...], /) -> dict[str, float]:
+    """Map a question to the financial statements it asks to read."""
 
-
-def _statement_markers(terms: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:
+    normalized = " ".join(unicodedata.normalize("NFC", question).casefold().split())
+    requested: dict[str, float] = {}
+    for kind, phrases in _EXPLICIT_STATEMENT_PHRASES:
+        if any(phrase in normalized for phrase in phrases):
+            requested[kind] = 1.0
     known = set(terms)
-    markers: list[tuple[str, ...]] = []
-    if known & {"income", "profit", "earnings", "revenue", "sales", "expenses", "costs", "margin"}:
-        markers.append(("statement", "of", "income"))
-        markers.append(("statements", "of", "income"))
-    if known & {"capex", "depreciation", "amortization"} or ("cash" in known and known & {"flow", "flows"}):
-        markers.append(("statement", "of", "cash", "flows"))
-    if known & {"balance", "assets", "liabilities", "debt", "inventory"}:
-        markers.append(("balance", "sheet"))
-    if "equity" in known and known & {"statement", "statements"}:
-        markers.append(("statement", "of", "equity"))
-    return tuple(markers)
+    for kind, vocabulary in _IMPLIED_STATEMENT_TERMS:
+        if kind not in requested and known & vocabulary:
+            requested[kind] = _IMPLIED_STATEMENT_WEIGHT
+    return requested
 
 
 def _variant_positions(variants: tuple[str, ...], positions: dict[str, tuple[int, ...]]) -> tuple[int, ...]:
@@ -530,12 +741,16 @@ def _variant_positions(variants: tuple[str, ...], positions: dict[str, tuple[int
     return tuple(sorted(found))
 
 
-def _within_window(left: tuple[int, ...], right: tuple[int, ...]) -> bool:
+def _closest_gap(left: tuple[int, ...], right: tuple[int, ...]) -> int | None:
+    gap: int | None = None
     for first in left:
-        index = bisect.bisect_left(right, first - _PROXIMITY_WINDOW)
-        if index < len(right) and right[index] <= first + _PROXIMITY_WINDOW:
-            return True
-    return False
+        index = bisect.bisect_left(right, first)
+        for candidate in (index - 1, index):
+            if 0 <= candidate < len(right):
+                distance = abs(right[candidate] - first)
+                if gap is None or distance < gap:
+                    gap = distance
+    return gap
 
 
 def _analyze_page(text: str) -> tuple[Counter[str], dict[str, tuple[int, ...]], tuple[str, ...]]:
@@ -616,6 +831,10 @@ def _term_variants(term: str, vocabulary: tuple[str, ...]) -> tuple[str, ...]:
     if term.isdigit():
         return (term,)
     variants = {term}
+    fiscal = _FISCAL_YEAR.fullmatch(term)
+    if fiscal:
+        year = fiscal.group(1)
+        variants.add(year if len(year) == 4 else f"20{year}")
     if len(term) >= _MIN_PREFIX_LENGTH + 2:
         stem = term[: max(_MIN_PREFIX_LENGTH, len(term) - _SUFFIX_MARGIN)]
         start = bisect.bisect_left(vocabulary, stem)
