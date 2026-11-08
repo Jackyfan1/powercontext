@@ -1,0 +1,31 @@
+# ScholarLens 依赖
+# Python 3.11+
+
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.18
+
+# Document parsing
+PyPDF2==3.0.1
+pdfplumber==0.11.4
+
+# NLP / Embeddings
+sentence-transformers==3.3.1
+torch>=2.1.0
+numpy>=1.24.0
+
+# Database
+aiosqlite==0.20.0
+
+# HTTP client (for PowerContext)
+httpx==0.28.1
+
+# PowerContext (real memory server client)
+powercontext>=1.5.0
+
+# Environment
+python-dotenv==1.0.1
+
+# LLM integration (optional)
+openai>=1.0.0

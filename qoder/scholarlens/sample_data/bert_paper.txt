@@ -1,0 +1,21 @@
+BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding
+
+Abstract:
+We introduce a new language representation model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language representation models, BERT is designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a result, the pre-trained BERT model can be fine-tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task-specific architecture modifications.
+
+1. Introduction:
+Language model pre-training has been shown to be effective for improving many natural language processing tasks. These include sentence-level tasks such as natural language inference and paraphrasing, which aim to predict the relationships between sentences by analyzing them holistically, as well as token-level tasks such as named entity recognition and question answering, where models need to produce fine-grained output at the token level.
+
+There are two existing strategies for applying pre-trained language representations to downstream tasks: feature-based and fine-tuning. The feature-based approach, such as ELMo, uses task-specific architectures that include the pre-trained representations as additional features. The fine-tuning approach, such as the Generative Pre-trained Transformer (OpenAI GPT), introduces minimal task-specific parameters, and is trained on the downstream tasks by simply fine-tuning all pre-trained parameters.
+
+2. Related Work:
+Unsupervised feature-based approaches have a long history. ELMo generalized traditional word embedding research along a different dimension. They proposed to extract context-sensitive features from a pre-trained bidirectional LSTM. GPT fine-tunes the parameters of a Transformer-based language model trained on a large corpus.
+
+3. BERT Model Architecture:
+BERT's model architecture is a multi-layer bidirectional Transformer encoder based on the original implementation described in Vaswani et al. We denote the number of layers as L, the hidden size as H, and the number of self-attention heads as A. We primarily report results on two model sizes: BERT-BASE with L=12, H=768, A=12, Total Parameters=110M; BERT-LARGE with L=24, H=1024, A=16, Total Parameters=340M.
+
+4. Pre-training BERT:
+We pre-train BERT using two unsupervised tasks: Masked LM and Next Sentence Prediction. The pre-training procedure largely follows the existing literature on language model pre-training. For the Masked LM, we randomly mask 15 percent of WordPiece tokens in the input sequence, and then predict those masked tokens.
+
+5. Experiments:
+In this section, we present BERT fine-tuning results on 11 NLP tasks. We demonstrate that BERT is highly portable, achieving state-of-the-art results across a diverse set of tasks with minimal task-specific modifications.

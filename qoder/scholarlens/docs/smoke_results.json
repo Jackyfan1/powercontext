@@ -1,0 +1,107 @@
+{
+  "search": {
+    "query": "什么是自注意力机制",
+    "expanded_query": "什么是自注意力机制 ????? seekdb ???????,???????????????? 卷积神经网络 什么是自注意力机制",
+    "count": 3,
+    "results": [
+      {
+        "id": 7,
+        "text": "3. 多头注意力",
+        "score": 0.7,
+        "vector_score": 0.663,
+        "keyword_score": 0.0,
+        "source": "transformer_attention.md | para.6",
+        "filename": "transformer_attention.md",
+        "page_number": null,
+        "paragraph_index": 6,
+        "chunk_index": 6
+      },
+      {
+        "id": 4,
+        "text": "2. 自注意力机制",
+        "score": 0.698,
+        "vector_score": 0.6612,
+        "keyword_score": 0.0,
+        "source": "transformer_attention.md | para.3",
+        "filename": "transformer_attention.md",
+        "page_number": null,
+        "paragraph_index": 3,
+        "chunk_index": 3
+      },
+      {
+        "id": 25,
+        "text": "什么是卷积神经网络",
+        "score": 0.6535,
+        "vector_score": 0.6039,
+        "keyword_score": 0.0667,
+        "source": "cnn_notes.md | para.1",
+        "filename": "cnn_notes.md",
+        "page_number": null,
+        "paragraph_index": 1,
+        "chunk_index": 1
+      }
+    ]
+  },
+  "qa_mode": "excerpt",
+  "qa_citations_count": 5,
+  "memory_status": {
+    "available": true,
+    "message": "PowerContext 已连接"
+  },
+  "memory_recall_summary": "上次你在查「用户在研究 seekdb 的混合检索能力，关注向量检索与全文检索的结合方式」；最近搜索过「检索主题: Transformer 中自注意力相比 RNN 有什么优势？ | 结果数: 3 | 最佳片段: Transf」；已确认 2 条结论",
+  "memory_recall_available": true,
+  "powercontext_remember": {
+    "request": {
+      "scope_id": "scp_6daw1m899x4hwzd9xyckx75dbr",
+      "kind": "dev_log_test",
+      "text": "ScholarLens 冒烟测试记录：四接口全部通过"
+    },
+    "response": {
+      "changed": true,
+      "records": [
+        {
+          "artifact": {
+            "family": "atomic-memory",
+            "artifact_id": "art_d38e34748e354a87afb562206edebe32",
+            "revision": 1
+          },
+          "kind": "dev_log_test",
+          "text": "ScholarLens 冒烟测试记录：四接口全部通过",
+          "state": "active",
+          "state_version": 0,
+          "merged_into_id": null
+        }
+      ]
+    }
+  },
+  "powercontext_search": {
+    "request": {
+      "scope_id": "scp_6daw1m899x4hwzd9xyckx75dbr",
+      "query": "ScholarLens 冒烟测试",
+      "limit": 3
+    },
+    "response": {
+      "mode": "text",
+      "hits": [
+        {
+          "memory": {
+            "artifact": {
+              "family": "atomic-memory",
+              "artifact_id": "art_d38e34748e354a87afb562206edebe32",
+              "revision": 1
+            },
+            "kind": "dev_log_test",
+            "text": "ScholarLens 冒烟测试记录：四接口全部通过",
+            "state": "active",
+            "state_version": 0,
+            "merged_into_id": null
+          },
+          "score": 0.01639344262295082,
+          "matched_by": [
+            "text"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>研阅 ScholarLens — 文献语义检索助手</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div class="logo">
+                <span class="logo-icon">📚</span>
+                <h1>研阅 ScholarLens</h1>
+                <span class="subtitle">文献与资料语义检索助手</span>
+            </div>
+            <div id="memory-status" class="memory-badge">记忆: 检查中...</div>
+        </header>
+
+        <div id="recall-banner" class="recall-banner" style="display:none;">
+            <span id="recall-text"></span>
+            <button onclick="dismissRecall()">×</button>
+        </div>
+
+        <nav class="tabs">
+            <button class="tab active" data-tab="import">📥 导入文献</button>
+            <button class="tab" data-tab="search">🔍 语义检索</button>
+            <button class="tab" data-tab="qa">💬 智能问答</button>
+            <button class="tab" data-tab="memory">🧠 研究记忆</button>
+        </nav>
+
+        <main>
+            <!-- Import Tab -->
+            <section id="tab-import" class="tab-content active">
+                <div class="card">
+                    <h2>导入文献资料</h2>
+                    <p class="hint">支持 PDF、Markdown、TXT 格式。系统将自动解析并按段落切块，生成语义向量。</p>
+                    <div class="upload-zone" id="dropZone">
+                        <input type="file" id="fileInput" multiple accept=".pdf,.md,.txt,.markdown" style="display:none">
+                        <div class="upload-icon">📄</div>
+                        <p>拖拽文件到此处，或 <button onclick="document.getElementById('fileInput').click()" class="link-btn">点击选择文件</button></p>
+                        <p class="hint">可一次选择多个文件批量导入</p>
+                    </div>
+                    <div id="uploadProgress" class="progress" style="display:none;">
+                        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                        <span id="progressText">处理中...</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>已导入文献</h2>
+                    <div id="documentList" class="doc-list">
+                        <p class="hint">加载中...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Search Tab -->
+            <section id="tab-search" class="tab-content">
+                <div class="card">
+                    <h2>语义检索</h2>
+                    <div class="search-bar">
+                        <input type="text" id="searchInput" placeholder="输入自然语言问题，如：Transformer 的自注意力机制是什么？" />
+                        <button onclick="doSearch()" id="searchBtn">检索</button>
+                    </div>
+                    <div class="search-options">
+                        <label>返回数量: <select id="topK"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option></select></label>
+                    </div>
+                </div>
+                <div id="searchResults" class="results"></div>
+            </section>
+
+            <!-- QA Tab -->
+            <section id="tab-qa" class="tab-content">
+                <div class="card">
+                    <h2>智能问答</h2>
+                    <p class="hint">基于已导入文献生成带引用标记的回答。未配置 LLM Key 时将展示最相关段落摘录。</p>
+                    <div class="search-bar">
+                        <input type="text" id="qaInput" placeholder="输入您的问题..." />
+                        <button onclick="doQA()" id="qaBtn">提问</button>
+                    </div>
+                </div>
+                <div id="qaResult" class="qa-result"></div>
+            </section>
+
+            <!-- Memory Tab -->
+            <section id="tab-memory" class="tab-content">
+                <div class="card">
+                    <h2>研究记忆</h2>
+                    <p class="hint">PowerContext 自动记录您的研究主题、检索历史和已确认结论，下次打开时自动召回。</p>
+                    <div id="memoryContent">
+                        <p class="hint">加载中...</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>手动保存结论</h3>
+                    <div class="form-group">
+                        <label>研究主题</label>
+                        <input type="text" id="conclusionTopic" placeholder="如：Transformer 架构分析">
+                    </div>
+                    <div class="form-group">
+                        <label>结论内容</label>
+                        <textarea id="conclusionText" placeholder="输入您确认的结论..."></textarea>
+                    </div>
+                    <button onclick="saveConclusion()" class="btn-primary">保存结论</button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>ScholarLens v1.0 — 本地向量 + 关键词混合检索 · PowerContext 记忆增强</p>
+        </footer>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>
