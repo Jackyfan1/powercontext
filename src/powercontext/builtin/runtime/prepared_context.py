@@ -17,6 +17,8 @@
 from __future__ import annotations
 
 import json
+import math
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from itertools import chain
@@ -43,6 +45,9 @@ from powercontext.builtin.runtime.prepared_text import (
 from powercontext.builtin.runtime.recall_sufficiency import RecallBudgetView
 
 _MIN_TRUNCATED_CONTENT_BYTES = 64
+_MAX_EVIDENCE_FRAGMENTS = 16
+_EVIDENCE_TOKEN_PATTERN = re.compile(r"[a-z]+|\d+")
+_SENTENCE_BOUNDARIES = frozenset(".!?。！？\n")
 _ELLIPSIS = "…"
 _BEGIN_MARKER = "BEGIN_POWERCONTEXT_PREPARED_CONTEXT_V1"
 _END_MARKER = "END_POWERCONTEXT_PREPARED_CONTEXT_V1"
@@ -106,6 +111,27 @@ class PreparedContextBuild:
     origins: tuple[PreparedContextOrigin, ...]
     omissions: PreparedContextOmissions = PreparedContextOmissions()
     code_origins: tuple[CodeEvidenceRef, ...] = ()
+    fragments: tuple[EvidenceFragment, ...] = ()
+
+
+@dataclass(frozen=True)
+class EvidenceFragment:
+    """One literal span of a Memory entry selected for the current query."""
+
+    address: MemoryEntryAddress
+    start: int
+    end: int
+    text: str
+
+
+@dataclass(frozen=True)
+class _EvidenceSentence:
+    """One literal sentence span of a Memory entry considered for selection."""
+
+    address: MemoryEntryAddress
+    start: int
+    end: int
+    text: str
 
 
 @dataclass(frozen=True)
@@ -211,6 +237,13 @@ class PreparedContextBuilder:
         profile_candidates: Sequence[PreparedProfileCandidate] = (),
         code_candidates: Sequence[PreparedCodeCandidate] = (),
     ) -> PreparedContextBuild:
+        if request.evidence_selection:
+            return self._select_evidence(
+                request=request,
+                current_scope_id=current_scope_id,
+                memory_candidates=memory_candidates,
+            )
+
         if request.include_code:
 
             def historical(history_request: PrepareContextRequest, entries: int) -> PreparedContextBuild:
@@ -254,6 +287,84 @@ class PreparedContextBuilder:
             context=PreparedContext(status="ready", content=content, content_bytes=content_bytes),
             origins=origins,
             omissions=omissions,
+        )
+
+    def _select_evidence(
+        self,
+        *,
+        request: PrepareContextRequest,
+        current_scope_id: str | None,
+        memory_candidates: Sequence[PreparedMemoryCandidates],
+    ) -> PreparedContextBuild:
+        """Keep the literal Memory spans that answer the query inside the byte budget.
+
+        Every candidate is split on sentence boundaries while keeping its original character
+        offsets, so a delivered fragment is always ``entry.text[start:end]``. Spans are ranked
+        by how much of the query they cover, without repeating an already selected span.
+        """
+
+        candidates: list[_EvidenceSentence] = []
+        for group in memory_candidates:
+            if group.hits and group.memory_ref is None:
+                raise PreparedContextInvariantError("memory-ref-missing")
+            for hit in group.hits:
+                if hit.memory_ref != group.memory_ref:
+                    raise PreparedContextInvariantError("memory-ref-mismatch")
+                if not hit.text.strip():
+                    continue
+                address = MemoryEntryAddress(
+                    memory=ArtifactAddress(scope_id=group.scope_id, artifact=hit.memory_ref),
+                    entry_id=hit.entry_id,
+                    entry_version_id=hit.entry_version_id,
+                )
+                for start, end, text in _sentence_spans(hit.text):
+                    candidates.append(_EvidenceSentence(address=address, start=start, end=end, text=text))
+        if not candidates:
+            return PreparedContextBuild(context=self.empty(), origins=(), fragments=())
+
+        query_terms = set(_evidence_tokens(request.query))
+        terms = tuple(_evidence_tokens(candidate.text) for candidate in candidates)
+        frequency: dict[str, int] = {}
+        for candidate_terms in terms:
+            for term in set(candidate_terms):
+                frequency[term] = frequency.get(term, 0) + 1
+        total = len(candidates)
+
+        def weight(term: str) -> float:
+            return math.log((total + 1) / (frequency.get(term, 0) + 1)) + 1.0
+
+        def gain(candidate_terms: tuple[str, ...]) -> float:
+            return sum(weight(term) for term in set(candidate_terms) if term in query_terms)
+
+        ranked = sorted(
+            zip(candidates, terms, strict=True),
+            key=lambda item: (-gain(item[1]), len(item[0].text), item[0].start, item[0].address.entry_id),
+        )
+        selected: list[EvidenceSentence] = []
+        seen_text: set[str] = set()
+        for candidate, candidate_terms in ranked:
+            if gain(candidate_terms) <= 0 and selected:
+                break
+            if candidate.text in seen_text:
+                continue
+            if _fragment_bytes((*selected, candidate)) > request.max_bytes:
+                continue
+            selected.append(candidate)
+            seen_text.add(candidate.text)
+            if len(selected) >= _MAX_EVIDENCE_FRAGMENTS:
+                break
+        if not selected and _fragment_bytes((candidates[0],)) <= request.max_bytes:
+            selected.append(candidates[0])
+
+        fragments = tuple(
+            EvidenceFragment(address=candidate.address, start=candidate.start, end=candidate.end, text=candidate.text)
+            for candidate in selected
+        )
+        content = _render_fragments(fragments)
+        return PreparedContextBuild(
+            context=PreparedContext(status="ready", content=content, content_bytes=len(content.encode("utf-8"))),
+            origins=tuple(_evidence_origin(fragment.address, current_scope_id) for fragment in fragments),
+            fragments=fragments,
         )
 
     def probe_budget(
@@ -728,3 +839,72 @@ def _truncate_utf8(text: str, byte_budget: int) -> str:
     prefix_budget = byte_budget - len(_ELLIPSIS.encode("utf-8"))
     encoded_prefix = text.encode("utf-8")[:prefix_budget]
     return f"{encoded_prefix.decode('utf-8', errors='ignore')}{_ELLIPSIS}"
+
+
+def _evidence_tokens(text: str) -> tuple[str, ...]:
+    return tuple(_EVIDENCE_TOKEN_PATTERN.findall(text.casefold()))
+
+
+def _sentence_spans(text: str) -> tuple[tuple[int, int, str], ...]:
+    spans: list[tuple[int, int, str]] = []
+    start = 0
+    for index, character in enumerate(text):
+        if character in _SENTENCE_BOUNDARIES:
+            span = _trimmed_span(text, start, index + 1)
+            if span is not None:
+                spans.append(span)
+            start = index + 1
+    span = _trimmed_span(text, start, len(text))
+    if span is not None:
+        spans.append(span)
+    return tuple(spans)
+
+
+def _trimmed_span(text: str, start: int, end: int) -> tuple[int, int, str] | None:
+    while start < end and text[start].isspace():
+        start += 1
+    while end > start and text[end - 1].isspace():
+        end -= 1
+    if start >= end:
+        return None
+    return start, end, text[start:end]
+
+
+def _evidence_origin(address: MemoryEntryAddress, current_scope_id: str | None) -> PreparedContextOrigin:
+    if current_scope_id is not None and address.memory.scope_id == current_scope_id:
+        return MemoryCitation(
+            memory_ref=address.memory.artifact,
+            entry_id=address.entry_id,
+            entry_version_id=address.entry_version_id,
+        )
+    return address
+
+
+def _fragment_citation(fragment: EvidenceFragment) -> dict[str, object]:
+    return {
+        "scope_id": fragment.address.memory.scope_id,
+        "memory_ref": fragment.address.memory.artifact.model_dump(mode="json"),
+        "entry_id": fragment.address.entry_id,
+        "entry_version_id": fragment.address.entry_version_id,
+    }
+
+
+def _render_fragments(fragments: Sequence[EvidenceFragment]) -> str:
+    envelope = {
+        "trust": "untrusted_history",
+        "items": [
+            {
+                "citation": _fragment_citation(fragment),
+                "content": fragment.text,
+                "start": fragment.start,
+                "end": fragment.end,
+            }
+            for fragment in fragments
+        ],
+    }
+    encoded = json.dumps(envelope, ensure_ascii=False, separators=(",", ":"))
+    return "\n\n".join((TRUST_POLICY, f"{_BEGIN_MARKER}\n{encoded}\n{_END_MARKER}"))
+
+
+def _fragment_bytes(fragments: Sequence[EvidenceFragment]) -> int:
+    return len(_render_fragments(fragments).encode("utf-8"))
