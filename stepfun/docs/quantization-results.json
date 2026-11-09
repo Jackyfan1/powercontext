@@ -1,0 +1,48 @@
+{
+  "saved_at": "2026-11-09 14:45:37.507209",
+  "meta": {
+    "device": "webgpu",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) TraeCN/1.107.1 Chrome/142.0.7444.235 Electron/39.2.7 Safari/537.36",
+    "model": "bge-small-zh-v1.5",
+    "sentences": 10,
+    "queries": 4
+  },
+  "results": [
+    {
+      "key": "fp32",
+      "label": "FP32",
+      "device": "webgpu",
+      "dtype": "fp32",
+      "load_ms": 580,
+      "per_item_ms": 40.9,
+      "avg_cosine": 1,
+      "min_cosine": 1,
+      "top1_agreement": null,
+      "bytes": 94851877
+    },
+    {
+      "key": "fp16",
+      "label": "FP16",
+      "device": "webgpu",
+      "dtype": "fp16",
+      "load_ms": 91,
+      "per_item_ms": 2.8,
+      "avg_cosine": 0.99997,
+      "min_cosine": 0.99997,
+      "top1_agreement": "4/4",
+      "bytes": 47497427
+    },
+    {
+      "key": "int8",
+      "label": "INT8",
+      "device": "wasm",
+      "dtype": "q8",
+      "load_ms": 190,
+      "per_item_ms": 6.6,
+      "avg_cosine": 0.98991,
+      "min_cosine": 0.98741,
+      "top1_agreement": "4/4",
+      "bytes": 24010842
+    }
+  ]
+}

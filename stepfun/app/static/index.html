@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StepSeek · 端侧知识库</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">S</div>
+    <div>
+      <h1>StepSeek <span>端侧知识库</span></h1>
+      <p>浏览器本地向量化 · seekdb 混合检索</p>
+    </div>
+  </div>
+  <div class="chips">
+    <span class="chip" id="chip-db"><i class="dot"></i> seekdb 连接中…</span>
+    <span class="chip" id="chip-device"><i class="dot"></i> 推理后端检测中…</span>
+    <span class="chip" id="chip-model"><i class="dot"></i> 模型加载中…</span>
+  </div>
+</header>
+
+<div class="banner hidden" id="banner"></div>
+
+<main class="layout">
+  <!-- 左：集合 + 导入 -->
+  <section class="col">
+    <div class="card">
+      <div class="card-head">
+        <h2>知识库集合</h2>
+        <button class="ghost" id="btn-new-collection">新建</button>
+      </div>
+      <div class="collection-list" id="collection-list"></div>
+      <form class="inline-form hidden" id="collection-form">
+        <input id="collection-name" placeholder="集合名称，例如：产品手册" maxlength="40" />
+        <input id="collection-desc" placeholder="描述（可选）" maxlength="80" />
+        <div class="row">
+          <button type="submit" class="primary">创建</button>
+          <button type="button" class="ghost" id="btn-cancel-collection">取消</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>导入语料</h2>
+        <span class="hint">增量导入 · 本地向量化</span>
+      </div>
+      <input id="doc-title" placeholder="文档标题，例如：seekdb 介绍" maxlength="60" />
+      <div class="row">
+        <label class="file-btn">
+          选择 .txt / .md
+          <input type="file" id="file-input" accept=".txt,.md,.markdown,text/plain" hidden />
+        </label>
+        <button class="ghost" id="btn-samples">载入示例语料</button>
+        <span class="hint" id="file-hint">或直接粘贴文本</span>
+      </div>
+      <textarea id="doc-text" rows="7" placeholder="把要入库的文本粘贴到这里…"></textarea>
+      <div class="row space-between">
+        <span class="hint" id="chunk-hint">0 字</span>
+        <button class="primary" id="btn-import">导入并向量化</button>
+      </div>
+      <div class="progress hidden" id="import-progress"><div class="bar" id="import-bar"></div></div>
+      <ul class="log" id="import-log"></ul>
+    </div>
+  </section>
+
+  <!-- 中：检索 -->
+  <section class="col wide">
+    <div class="card">
+      <div class="card-head">
+        <h2>混合检索</h2>
+        <span class="hint" id="search-hint">向量 + 全文在 seekdb 内完成</span>
+      </div>
+      <div class="search-box">
+        <input id="query" placeholder="输入自然语言问题，例如：seekdb 支持哪些检索能力？" />
+        <button class="primary" id="btn-search">检索</button>
+      </div>
+      <div class="row wrap">
+        <div class="seg" id="mode-seg">
+          <button data-mode="hybrid" class="active">混合</button>
+          <button data-mode="vector">向量</button>
+          <button data-mode="text">全文</button>
+        </div>
+        <label class="field">Top-K
+          <select id="topk">
+            <option>3</option><option selected>5</option><option>8</option><option>10</option>
+          </select>
+        </label>
+        <label class="field hidden" id="weight-field">向量权重
+          <input type="range" id="weight-vector" min="0" max="1" step="0.05" value="0.7" />
+          <span id="weight-label">0.70 / 0.30</span>
+        </label>
+      </div>
+      <div class="meta-row" id="search-meta"></div>
+      <div class="results" id="results">
+        <div class="empty">还没有结果。先导入一段文本，再试试提问。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>本次会话</h2>
+        <span class="hint" id="session-label">会话状态保存在 seekdb</span>
+      </div>
+      <ul class="history" id="history"></ul>
+    </div>
+  </section>
+
+  <!-- 右：状态 + 量化 -->
+  <section class="col">
+    <div class="card">
+      <div class="card-head">
+        <h2>数据与索引</h2>
+        <button class="ghost" id="btn-refresh">刷新索引</button>
+      </div>
+      <dl class="stats" id="stats"></dl>
+      <div class="index-list" id="index-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>量化对比</h2>
+        <button class="ghost" id="btn-benchmark">运行实测</button>
+      </div>
+      <p class="hint">同一句集分别用 FP32 / FP16 / INT8 推理，比较体积、耗时与向量一致性。</p>
+      <div id="benchmark-result" class="bench-wrap">
+        <div class="empty small">尚未运行。点击「运行实测」生成对比数据。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>运行日志</h2><button class="ghost" id="btn-clear-log">清空</button></div>
+      <ul class="log" id="sys-log"></ul>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

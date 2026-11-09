@@ -1,0 +1,13 @@
+# 运行环境
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# 运行产物
+.logs/
+.run/
+
+# 依赖资产（用 scripts/prepare_assets.py 重新拉取）
+app/static/models/
+app/static/vendor/
