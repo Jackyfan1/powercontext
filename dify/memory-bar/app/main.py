@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from . import db, mixology
@@ -88,7 +89,14 @@ def _stats(user_id: str) -> dict:
 def root() -> dict:
     return {
         "name": "深夜记忆调酒馆",
-        "endpoints": ["/v1/health", "/v1/recall", "/v1/remember", "/v1/memories", "/v1/orders"],
+        "endpoints": [
+            "/v1/health",
+            "/v1/recall",
+            "/v1/recall_text",
+            "/v1/remember",
+            "/v1/memories",
+            "/v1/orders",
+        ],
     }
 
 
@@ -174,6 +182,12 @@ def recall(req: RecallRequest) -> dict:
         "stats": {**stats, "glasses_today": stats["glasses_today"] + 1},
         "order_id": order_id,
     }
+
+
+@app.post("/v1/recall_text", response_class=PlainTextResponse)
+def recall_text(req: RecallRequest) -> str:
+    """供 Dify HTTP 节点直连：纯文本回复，Dify 里直接引用 body 即可。"""
+    return recall(req)["reply"]
 
 
 @app.post("/v1/remember")

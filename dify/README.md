@@ -29,10 +29,10 @@
 
 | 要求 | 本作品如何满足 |
 | --- | --- |
-| 必须使用 Dify | `dsl/midnight_memory_bar.yml` 是可导入的 Dify Chatflow（DSL 0.7.0，4 个节点：开始 → 查阅酒柜 → 封存记忆 → 回复） |
+| 必须使用 Dify | `dify/app.dsl.yml` 是可导入的 Dify Chatflow（DSL 0.7.0，4 个节点：开始 → 查阅酒柜 → 封存记忆 → 回复） |
 | 实际使用 seekdb（或 PowerContext） | 记忆与风味卡全部存于 seekdb `memory_bar` 库；向量召回走 HNSW 向量索引，全文召回走 ngram 全文索引，混合排序在一条 SQL 内完成 |
 | 应用能运行、可按样例体验 | 后端零框架魔法（FastAPI），`scripts/init_db.py` + `scripts/seed.py` 一键初始化，`scripts/smoke_test.py` 7 项全通过 |
-| 提交 Dify DSL / 运行说明 / 验证样例 | DSL 见 `dsl/`；运行说明即本文；验证见第 6 节与 `docs/verification.md`、`docs/smoke_results.json` |
+| 提交 Dify DSL / 运行说明 / 验证样例 | DSL 见 `dify/app.dsl.yml`；运行说明即本文；验证见第 6 节与 `memory-bar/docs/verification.md`、`memory-bar/docs/smoke_results.json` |
 | 创意、趣味、体验 | 每杯酒的命名、配方、酒语、回甘都不同；长期使用会长出个人「酒柜」，越用越有味道 |
 
 ---
@@ -41,9 +41,9 @@
 
 ```
 ┌──────────────────────────── Dify Chatflow ────────────────────────────┐
-│  开始 ──► 查阅酒柜 (HTTP /v1/recall) ──► 封存记忆 (HTTP /v1/remember) ──► 回复 │
+│ 开始 ──► 查阅酒柜 (HTTP /v1/recall_text) ──► 封存记忆 (HTTP /v1/remember) ──► 回复 │
 └───────────────┬───────────────────────────────────────────┬───────────┘
-                │ POST /v1/recall                            │ POST /v1/remember
+                │ POST /v1/recall_text                       │ POST /v1/remember
                 ▼                                            ▼
 ┌────────────────────────── 深夜记忆调酒馆 API (8787) ──────────────────────────┐
 │  FastAPI · bge-small-zh-v1.5 (ONNX, 512 维) · 调酒/酒柜/打烊三种意图          │
@@ -108,7 +108,7 @@ curl http://127.0.0.1:8787/v1/health
 
 ### 4.3 导入 Dify 应用
 
-1. Dify →「工作室」→「创建应用」→「导入 DSL 文件」，选择 `dsl/midnight_memory_bar.yml`。
+1. Dify →「工作室」→「创建应用」→「导入 DSL 文件」，选择仓库里的 `dify/app.dsl.yml`。
 2. 只改应用环境变量 `BAR_BASE_URL`（节点里引用 `{{#env.BAR_BASE_URL#}}`，不用动节点）：
 
    | Dify 部署方式 | `BAR_BASE_URL` |
@@ -189,7 +189,7 @@ LIMIT %s
 
 环境：Windows + WSL seekdb 1.4.0.0（2881）+ Python 3.14 + `bge-small-zh-v1.5` ONNX。
 
-`python scripts/smoke_test.py`：**7/7 通过**（完整结果见 `docs/smoke_results.json`）。
+`python scripts/smoke_test.py`：**7/7 通过**（完整结果见 `memory-bar/docs/smoke_results.json`）。
 
 | 用例 | 结果 |
 | --- | --- |
@@ -229,7 +229,7 @@ Q: 看看我的酒柜
 - `11月9日` 今天加班到很晚，有点想家
 ```
 
-更完整的对话与复现步骤见 [`docs/verification.md`](docs/verification.md)。
+更完整的对话与复现步骤见 [`memory-bar/docs/verification.md`](memory-bar/docs/verification.md)。
 
 ---
 
@@ -238,7 +238,8 @@ Q: 看看我的酒柜
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/v1/health` | seekdb 版本、索引、编码模式、数据量 |
-| POST | `/v1/recall` | 读取记忆 + 生成调酒/酒柜/打烊草稿（`query`、`user_id`、`top_k`） |
+| POST | `/v1/recall` | 读取记忆 + 生成调酒/酒柜/打烊草稿（`query`、`user_id`、`top_k`），返回 JSON |
+| POST | `/v1/recall_text` | 与 `/v1/recall` 同逻辑，直接返回纯文本回复；DSL 的 HTTP 节点引用这一路，回复节点直接用 `{{#recall.body#}}` |
 | POST | `/v1/remember` | 封存客人原话（`user_id`、`text`） |
 | GET | `/v1/memories?user_id=` | 查看某位客人的记忆 |
 | GET | `/v1/orders?user_id=` | 查看酒单 |
@@ -249,29 +250,30 @@ Q: 看看我的酒柜
 ## 8. 目录结构
 
 ```
-dify/memory-bar/
-├── app/
-│   ├── config.py        # 环境变量与 .env
-│   ├── db.py            # seekdb 连接、DDL、混合检索 SQL
-│   ├── embedding.py     # bge-small-zh-v1.5 ONNX 编码（含离线降级）
-│   ├── mixology.py      # 调酒/酒柜/打烊三种意图的文案与配方
-│   ├── seed.py          # 风味卡与演示记忆灌入
-│   └── main.py          # FastAPI 服务
-├── dsl/
-│   └── midnight_memory_bar.yml   # Dify Chatflow DSL
-├── sample_data/
-│   ├── flavor_cards.json         # 20 张风味卡
-│   └── demo_memories.json        # demo 的 6 段历史记忆
-├── scripts/
-│   ├── init_db.py
-│   ├── seed.py
-│   └── smoke_test.py
-├── docs/
-│   ├── dev-log.md
-│   ├── verification.md
-│   └── smoke_results.json
-├── requirements.txt
-└── .env.example
+dify/
+├── app.dsl.yml                 # Dify Chatflow DSL（导入这一个文件）
+├── README.md                   # 运行说明（本文）
+└── memory-bar/                 # 配套源码：seekdb 长期记忆 + 调酒后端
+    ├── app/
+    │   ├── config.py           # 环境变量与 .env
+    │   ├── db.py               # seekdb 连接、DDL、混合检索 SQL
+    │   ├── embedding.py        # bge-small-zh-v1.5 ONNX 编码（含离线降级）
+    │   ├── mixology.py         # 调酒/酒柜/打烊三种意图的文案与配方
+    │   ├── seed.py             # 风味卡与演示记忆灌入
+    │   └── main.py             # FastAPI 服务
+    ├── sample_data/
+    │   ├── flavor_cards.json   # 20 张风味卡
+    │   └── demo_memories.json  # demo 的 6 段历史记忆
+    ├── scripts/
+    │   ├── init_db.py
+    │   ├── seed.py
+    │   └── smoke_test.py
+    ├── docs/
+    │   ├── dev-log.md
+    │   ├── verification.md
+    │   └── smoke_results.json
+    ├── requirements.txt
+    └── .env.example
 ```
 
 ---

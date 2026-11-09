@@ -144,7 +144,7 @@ edges_ok True
 
 Dify 端为可视化导入，需在评审环境执行（本机未安装 Docker 版 Dify）：
 
-1. 导入 `dsl/midnight_memory_bar.yml`；
+1. 导入 `dify/app.dsl.yml`；
 2. 只改应用环境变量 `BAR_BASE_URL`（Docker：`host.docker.internal`，本机：`127.0.0.1`，Cloud：内网穿透地址）；
 3. 发布，使用第 5 节的问题逐条体验。
 

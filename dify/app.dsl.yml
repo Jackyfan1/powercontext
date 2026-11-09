@@ -133,7 +133,7 @@ workflow:
         default_value:
         - key: body
           type: string
-          value: '{"reply":"酒馆的灯暂时熄灭了：请先启动 seekdb 调酒后端（见 README 第 4.2 节），或在应用环境变量里检查 BAR_BASE_URL。","intent":"fallback"}'
+          value: '酒馆的灯暂时熄灭了：请先启动 seekdb 调酒后端（见 README 第 4.2 节），或在应用环境变量里检查 BAR_BASE_URL。'
         - key: status_code
           type: number
           value: 0
@@ -160,13 +160,8 @@ workflow:
           write: 20
         title: 查阅酒柜
         type: http-request
-        url: '{{#env.BAR_BASE_URL#}}/v1/recall'
-        variables:
-        - value_selector:
-          - recall
-          - body
-          - reply
-          variable: reply
+        url: '{{#env.BAR_BASE_URL#}}/v1/recall_text'
+        variables: []
       height: 120
       id: recall
       position:
@@ -237,7 +232,7 @@ workflow:
       type: custom
       width: 244
     - data:
-        answer: '{{#recall.reply#}}'
+        answer: '{{#recall.body#}}'
         desc: ''
         selected: false
         title: 直接回复

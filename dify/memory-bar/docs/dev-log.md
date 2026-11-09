@@ -85,7 +85,8 @@ ORDER BY 0.7 * (1 - cosine_distance(embedding, :vec))
 | 向量维度与索引不一致会建表失败 | 维度统一由 `VECTOR_DIM`（默认 512）驱动，编码器与 DDL 共用同一配置 |
 | Dify 容器访问不到宿主机服务 | README 按 Docker / 本机 / Cloud 三种部署给出主机名与内网穿透方案 |
 | 评审机器可能无法下载模型 | 提供 `HF_ENDPOINT` 镜像配置，并实现哈希向量降级，保证可运行性 |
-| 首版 DSL（0.1.5）被判「阻断主要流程」 | Dify 1.18 的 `body.type=json` 只接受一个条目，旧版 timeout/retry 字段也已过期；改为 0.7.0 结构、单条目 JSON、`timeout.connect/read/write` 与 `error_strategy: default-value` 后重新提测 |
+| 首版 DSL（0.1.5）被判「阻断主要流程」 | Dify 1.18 的 `body.type=json` 只接受一个条目，旧版 timeout/retry 字段也已过期；改为 0.7.0 结构、单条目 JSON、`timeout.connect/read/write` 与 `error_strategy: default-value` |
+| 二次提测仍报同一错误 | 回复节点引用了 HTTP 节点未声明的自定义变量（`recall.reply`），会被判为变量不存在；同时 DSL 不在约定路径。最终改为 `dify/app.dsl.yml`，回复模板只引用标准输出 `{{#recall.body#}}`（配套新增 `/v1/recall_text` 纯文本接口），HTTP 节点 `variables` 保持为空 |
 
 ## 6. 后续可做
 
