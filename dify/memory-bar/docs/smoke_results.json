@@ -1,0 +1,86 @@
+{
+  "base_url": "http://127.0.0.1:8787",
+  "results": [
+    {
+      "case": "健康检查 / seekdb 索引",
+      "status": "PASS",
+      "detail": {
+        "status": "ok",
+        "seekdb": "5.7.25-OceanBase seekdb-v1.4.0.0",
+        "embedding": {
+          "model": "bge-small-zh-v1.5",
+          "dim": 512,
+          "mode": "onnx"
+        },
+        "indexes": [
+          "PRIMARY",
+          "fidx_memories",
+          "idx_user_kind",
+          "vidx_memories"
+        ]
+      }
+    },
+    {
+      "case": "混合检索 + 调酒草稿",
+      "status": "PASS",
+      "detail": {
+        "cocktail": "「旧巷拾光」",
+        "top_memory": "今天加班到十一点，回家的地铁上只剩我和保洁阿姨。",
+        "score": 0.672083,
+        "vec_score": 0.595434,
+        "text_score": 0.850931,
+        "flavors": [
+          "苦橙皮",
+          "气泡水",
+          "桂花蜜",
+          "冷萃咖啡"
+        ]
+      }
+    },
+    {
+      "case": "写入新记忆 /v1/remember",
+      "status": "PASS",
+      "detail": {
+        "stored": true,
+        "memory_id": 32,
+        "total_memories": 1
+      }
+    },
+    {
+      "case": "语义召回刚写入的记忆",
+      "status": "PASS",
+      "detail": {
+        "expected_id": 32,
+        "top_id": 32,
+        "top_content": "今天第一次自己煮了面，盐放多了，但居然挺好吃。",
+        "score": 0.828996,
+        "vec_score": 0.796177,
+        "text_score": 0.905572
+      }
+    },
+    {
+      "case": "酒柜意图",
+      "status": "PASS",
+      "detail": {
+        "intent": "shelf",
+        "lines": 6
+      }
+    },
+    {
+      "case": "打烊意图",
+      "status": "PASS",
+      "detail": {
+        "intent": "close"
+      }
+    },
+    {
+      "case": "酒柜与酒单持久化",
+      "status": "PASS",
+      "detail": {
+        "memories": 1,
+        "orders": 3,
+        "latest_order": "「旧巷拾光」"
+      }
+    }
+  ]
+}

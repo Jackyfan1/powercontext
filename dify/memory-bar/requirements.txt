@@ -1,0 +1,7 @@
+fastapi>=0.110
+uvicorn>=0.29
+PyMySQL>=1.1
+numpy>=1.26
+onnxruntime>=1.17
+tokenizers>=0.15
+huggingface_hub>=0.23
