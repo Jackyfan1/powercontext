@@ -26,9 +26,9 @@
       "detail": {
         "cocktail": "「旧巷拾光」",
         "top_memory": "今天加班到十一点，回家的地铁上只剩我和保洁阿姨。",
-        "score": 0.672083,
+        "score": 0.666448,
         "vec_score": 0.595434,
-        "text_score": 0.850931,
+        "text_score": 0.832146,
         "flavors": [
           "苦橙皮",
           "气泡水",
@@ -42,7 +42,7 @@
       "status": "PASS",
       "detail": {
         "stored": true,
-        "memory_id": 32,
+        "memory_id": 34,
         "total_memories": 1
       }
     },
@@ -50,12 +50,12 @@
       "case": "语义召回刚写入的记忆",
       "status": "PASS",
       "detail": {
-        "expected_id": 32,
-        "top_id": 32,
+        "expected_id": 34,
+        "top_id": 34,
         "top_content": "今天第一次自己煮了面，盐放多了，但居然挺好吃。",
-        "score": 0.828996,
+        "score": 0.825137,
         "vec_score": 0.796177,
-        "text_score": 0.905572
+        "text_score": 0.89271
       }
     },
     {
@@ -78,7 +78,7 @@
       "status": "PASS",
       "detail": {
         "memories": 1,
-        "orders": 3,
+        "orders": 4,
         "latest_order": "「旧巷拾光」"
       }
     }

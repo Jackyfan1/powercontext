@@ -21,7 +21,7 @@
 | 打烊 | 「打烊吧，晚安」 | 统计今晚存下的记忆与喝过的酒，道别 |
 
 酒名由「用户 + 原话 + 日期」播种生成，同样的输入当天稳定、换一天会变；
-回甘优先引用检索到的真实旧记忆，**不会编造**（LLM 节点只做润色）。
+回甘优先引用检索到的真实旧记忆，**不会编造**（回复文案全部由后端依据检索结果生成，无需在 Dify 里配置任何大模型）。
 
 ---
 
@@ -29,7 +29,7 @@
 
 | 要求 | 本作品如何满足 |
 | --- | --- |
-| 必须使用 Dify | `dsl/midnight_memory_bar.yml` 是可导入的 Dify Chatflow（5 个节点：开始 → 查阅酒柜 → 调酒师 → 封存记忆 → 回复） |
+| 必须使用 Dify | `dsl/midnight_memory_bar.yml` 是可导入的 Dify Chatflow（DSL 0.7.0，4 个节点：开始 → 查阅酒柜 → 封存记忆 → 回复） |
 | 实际使用 seekdb（或 PowerContext） | 记忆与风味卡全部存于 seekdb `memory_bar` 库；向量召回走 HNSW 向量索引，全文召回走 ngram 全文索引，混合排序在一条 SQL 内完成 |
 | 应用能运行、可按样例体验 | 后端零框架魔法（FastAPI），`scripts/init_db.py` + `scripts/seed.py` 一键初始化，`scripts/smoke_test.py` 7 项全通过 |
 | 提交 Dify DSL / 运行说明 / 验证样例 | DSL 见 `dsl/`；运行说明即本文；验证见第 6 节与 `docs/verification.md`、`docs/smoke_results.json` |
@@ -41,7 +41,7 @@
 
 ```
 ┌──────────────────────────── Dify Chatflow ────────────────────────────┐
-│  开始 ──► 查阅酒柜 (HTTP) ──► 调酒师阿浮 (LLM) ──► 封存记忆 (HTTP) ──► 回复  │
+│  开始 ──► 查阅酒柜 (HTTP /v1/recall) ──► 封存记忆 (HTTP /v1/remember) ──► 回复 │
 └───────────────┬───────────────────────────────────────────┬───────────┘
                 │ POST /v1/recall                            │ POST /v1/remember
                 ▼                                            ▼
@@ -109,17 +109,20 @@ curl http://127.0.0.1:8787/v1/health
 ### 4.3 导入 Dify 应用
 
 1. Dify →「工作室」→「创建应用」→「导入 DSL 文件」，选择 `dsl/midnight_memory_bar.yml`。
-2. 打开「查阅酒柜」和「封存记忆」两个 HTTP 节点，按部署方式修改 URL：
+2. 只改应用环境变量 `BAR_BASE_URL`（节点里引用 `{{#env.BAR_BASE_URL#}}`，不用动节点）：
 
-   | Dify 部署方式 | URL 主机名 |
+   | Dify 部署方式 | `BAR_BASE_URL` |
    | --- | --- |
    | Docker 自托管（默认写法） | `http://host.docker.internal:8787` |
    | 本机源码 / 同机进程 | `http://127.0.0.1:8787` |
    | Dify Cloud | 用 cloudflared / ngrok 把 8787 暴露成公网地址后替换 |
 
-3. 打开「调酒师阿浮」LLM 节点，把模型换成你环境里已配置的对话模型
-   （DSL 默认是 `deepseek-chat`；换成 Qwen / GPT / Ollama 均可，提示词无需改）。
-4. 发布应用，用下面的问题试玩：
+3. 发布应用，用下面的问题试玩：
+
+> 本 DSL 为 Dify 1.18 的 0.7.0 结构：HTTP 节点的 JSON body 严格保持「单条目整段 JSON」
+> （多个 key/value 会被 Dify 判为 `json body type should have exactly one item`）；
+> 两个 HTTP 节点都设置了 `error_strategy: default-value`，后端未启动时主流程仍然走完并给出提示，不会中断对话。
+> 应用不依赖任何大模型 API Key，导入即可体验。
 
 ```
 今天加班到很晚，有点想家
@@ -281,8 +284,8 @@ Linux 可在 compose 中加 `extra_hosts: ["host.docker.internal:host-gateway"]`
 Dify Cloud 需要把 8787 用内网穿透映射到公网。
 
 **Q: 没有 API Key，能体验吗？**
-A: 能。后端三种意图全部是本地逻辑，LLM 只负责润色；用 curl 直接调 `/v1/recall` 即可看到完整文案。
-在 Dify 中把 LLM 节点换成任意已配置模型即可。
+A: 能。后端三种意图与文案全部是本地逻辑 + seekdb 检索结果，DSL 中没有任何 LLM 节点，
+导入后不需要配置任何模型即可对话。
 
 **Q: 向量模型下载失败？**
 A: 在 `.env` 设置 `HF_ENDPOINT=https://hf-mirror.com` 后重跑。

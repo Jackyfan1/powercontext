@@ -2,22 +2,42 @@ app:
   description: 把客人的每句话调成一杯有名字的酒，并用 seekdb 的向量 + 全文混合检索记住他们。Dify 负责编排与对话，seekdb 负责长期记忆。
   icon: 🍸
   icon_background: '#FFEAD5'
+  icon_type: emoji
   mode: advanced-chat
   name: 深夜记忆调酒馆
   use_icon_as_answer_icon: false
 dependencies: []
 kind: app
-version: 0.1.5
+site:
+  chat_color_theme: null
+  chat_color_theme_inverted: false
+  copyright: null
+  custom_disclaimer: ''
+  default_language: zh-Hans
+  description: null
+  icon: 🍸
+  icon_background: '#FFEAD5'
+  icon_type: emoji
+  input_placeholder: null
+  privacy_policy: null
+  show_workflow_steps: true
+  title: 深夜记忆调酒馆
+  use_icon_as_answer_icon: false
+version: 0.7.0
 workflow:
   conversation_variables: []
-  environment_variables: []
+  environment_variables:
+  - description: 调酒馆后端根地址（不带结尾斜杠）。Docker 自托管用 host.docker.internal，同机进程用 127.0.0.1。
+    id: bar-base-url
+    name: BAR_BASE_URL
+    selector:
+    - env
+    - BAR_BASE_URL
+    value: http://host.docker.internal:8787
+    value_type: string
   features:
     file_upload:
       enabled: false
-      allowed_file_types: []
-      allowed_file_extensions: []
-      allowed_file_upload_methods: []
-      number_limits: 3
     opening_statement: |-
       欢迎光临 **深夜记忆调酒馆**。
 
@@ -31,10 +51,10 @@ workflow:
     speech_to_text:
       enabled: false
     suggested_questions:
-      - 今天加班到很晚，有点想家
-      - 我第一次来，这里有什么酒？
-      - 看看我的酒柜
-      - 打烊吧，晚安
+    - 今天加班到很晚，有点想家
+    - 我第一次来，这里有什么酒？
+    - 看看我的酒柜
+    - 打烊吧，晚安
     suggested_questions_after_answer:
       enabled: false
     text_to_speech:
@@ -43,241 +63,197 @@ workflow:
       voice: ''
   graph:
     edges:
-      - data:
-          isInIteration: false
-          isInLoop: false
-          sourceType: start
-          targetType: http-request
-        id: start-recall
-        source: start
-        sourceHandle: source
-        target: recall
-        targetHandle: target
-        type: custom
-      - data:
-          isInIteration: false
-          isInLoop: false
-          sourceType: http-request
-          targetType: llm
-        id: recall-bartender
-        source: recall
-        sourceHandle: source
-        target: bartender
-        targetHandle: target
-        type: custom
-      - data:
-          isInIteration: false
-          isInLoop: false
-          sourceType: llm
-          targetType: http-request
-        id: bartender-remember
-        source: bartender
-        sourceHandle: source
-        target: remember
-        targetHandle: target
-        type: custom
-      - data:
-          isInIteration: false
-          isInLoop: false
-          sourceType: http-request
-          targetType: answer
-        id: remember-answer
-        source: remember
-        sourceHandle: source
-        target: answer
-        targetHandle: target
-        type: custom
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: start-to-recall
+      source: start
+      sourceHandle: source
+      target: recall
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: http-request
+      id: recall-to-remember
+      source: recall
+      sourceHandle: source
+      target: remember
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: answer
+      id: remember-to-answer
+      source: remember
+      sourceHandle: source
+      target: answer
+      targetHandle: target
+      type: custom
+      zIndex: 0
     nodes:
-      - data:
-          desc: ''
-          selected: false
-          title: 开始
-          type: start
-          variables: []
-        height: 54
-        id: start
-        position:
-          x: 80
-          y: 282
-        positionAbsolute:
-          x: 80
-          y: 282
+    - data:
+        desc: ''
         selected: false
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-        width: 244
-      - data:
-          authorization:
-            config: null
-            type: no-auth
-          body:
-            data:
-              - key: query
-                type: text
-                value: '{{#sys.query#}}'
-              - key: user_id
-                type: text
-                value: '{{#sys.user_id#}}'
-              - key: top_k
-                type: number
-                value: 4
-            type: json
-          desc: 在 seekdb 中做向量 + 全文混合检索，并生成调酒草稿
-          headers: 'Content-Type: application/json'
-          method: post
-          params: ''
-          retry_config:
-            max_retries: 3
-            retry_enabled: true
-            retry_interval: 100
-          selected: false
-          ssl_verify: true
-          timeout:
-            max_connect_timeout: 0
-            max_read_timeout: 0
-            max_write_timeout: 0
-          title: 查阅酒柜
-          type: http-request
-          url: http://host.docker.internal:8787/v1/recall
-          variables:
-            - value_selector:
-                - recall
-                - body
-                - draft
-              variable: draft
-          version: '2'
-        height: 98
-        id: recall
-        position:
-          x: 380
-          y: 250
-        positionAbsolute:
-          x: 380
-          y: 250
-        selected: false
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-        width: 244
-      - data:
-          context:
+        title: 开始
+        type: start
+        variables: []
+      height: 90
+      id: start
+      position:
+        x: 30
+        y: 260
+      positionAbsolute:
+        x: 30
+        y: 260
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - id: body_json
+            key: ''
+            type: text
+            value: '{"query":"{{#sys.query#}}","user_id":"{{#sys.user_id#}}","top_k":4}'
+          type: json
+        default_value:
+        - key: body
+          type: string
+          value: '{"reply":"酒馆的灯暂时熄灭了：请先启动 seekdb 调酒后端（见 README 第 4.2 节），或在应用环境变量里检查 BAR_BASE_URL。","intent":"fallback"}'
+        - key: status_code
+          type: number
+          value: 0
+        - key: headers
+          type: object
+          value: {}
+        desc: 在 seekdb 里做向量 + 全文混合检索，直接返回调酒师要说的完整回复
+        error_strategy: default-value
+        headers: 'Content-Type: application/json'
+        method: post
+        params: ''
+        retry_config:
+          enabled: true
+          exponential_backoff:
             enabled: false
-            variable_selector: []
-          desc: 调酒师人格：只润色草稿，不编造记忆
-          model:
-            completion_params:
-              temperature: 0.7
-              max_tokens: 800
-            mode: chat
-            name: deepseek-chat
-            provider: langgenius/deepseek/deepseek
-          prompt_template:
-            - role: system
-              text: |-
-                你是「深夜记忆调酒馆」的调酒师阿浮。客人的每句话都会被 seekdb 记住，并检索出相关的旧记忆与风味卡。
-                你会收到一份【调酒草稿】，里面的酒名、配方、酒语、回甘与统计都来自真实的检索结果。
-
-                规则：
-                1. 只能使用草稿中出现的信息，不要编造客人的过往、日期或记忆。
-                2. 必须保留：酒名、杯型/酒精度、配方条目、酒语、回甘、底部统计。
-                3. 用中文，语气温柔、略带诗意，控制在 120 字以内；可用 Markdown 加粗与小标题。
-                4. 如果草稿是「酒柜」或「打烊」内容，就按原意整理成自然回复，不要强行调酒。
-                5. 不要输出 JSON，不要解释规则。
-            - role: user
-              text: |-
-                客人今晚说：{{#sys.query#}}
-
-                【调酒草稿】
-                {{#recall.draft#}}
-          selected: false
-          title: 调酒师阿浮
-          type: llm
-          variables: []
-          vision:
+            max_interval: 10000
+            multiplier: 2
+          max_retries: 2
+          retry_interval: 1000
+        selected: false
+        timeout:
+          connect: 5
+          read: 20
+          write: 20
+        title: 查阅酒柜
+        type: http-request
+        url: '{{#env.BAR_BASE_URL#}}/v1/recall'
+        variables:
+        - value_selector:
+          - recall
+          - body
+          - reply
+          variable: reply
+      height: 120
+      id: recall
+      position:
+        x: 330
+        y: 260
+      positionAbsolute:
+        x: 330
+        y: 260
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - id: body_json
+            key: ''
+            type: text
+            value: '{"user_id":"{{#sys.user_id#}}","text":"{{#sys.query#}}"}'
+          type: json
+        default_value:
+        - key: body
+          type: string
+          value: '{"stored": false}'
+        - key: status_code
+          type: number
+          value: 0
+        - key: headers
+          type: object
+          value: {}
+        desc: 把客人今晚的话写回 seekdb，供下次召回；写入失败只跳过，不阻断对话
+        error_strategy: default-value
+        headers: 'Content-Type: application/json'
+        method: post
+        params: ''
+        retry_config:
+          enabled: true
+          exponential_backoff:
             enabled: false
-        height: 98
-        id: bartender
-        position:
-          x: 680
-          y: 250
-        positionAbsolute:
-          x: 680
-          y: 250
+            max_interval: 10000
+            multiplier: 2
+          max_retries: 2
+          retry_interval: 1000
         selected: false
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-        width: 244
-      - data:
-          authorization:
-            config: null
-            type: no-auth
-          body:
-            data:
-              - key: user_id
-                type: text
-                value: '{{#sys.user_id#}}'
-              - key: text
-                type: text
-                value: '{{#sys.query#}}'
-              - key: answer
-                type: text
-                value: '{{#bartender.text#}}'
-            type: json
-          desc: 把客人今晚的话写回 seekdb，供下次召回
-          headers: 'Content-Type: application/json'
-          method: post
-          params: ''
-          retry_config:
-            max_retries: 3
-            retry_enabled: true
-            retry_interval: 100
-          selected: false
-          ssl_verify: true
-          timeout:
-            max_connect_timeout: 0
-            max_read_timeout: 0
-            max_write_timeout: 0
-          title: 封存记忆
-          type: http-request
-          url: http://host.docker.internal:8787/v1/remember
-          variables: []
-          version: '2'
-        height: 98
-        id: remember
-        position:
-          x: 980
-          y: 250
-        positionAbsolute:
-          x: 980
-          y: 250
+        timeout:
+          connect: 5
+          read: 20
+          write: 20
+        title: 封存记忆
+        type: http-request
+        url: '{{#env.BAR_BASE_URL#}}/v1/remember'
+        variables: []
+      height: 120
+      id: remember
+      position:
+        x: 630
+        y: 260
+      positionAbsolute:
+        x: 630
+        y: 260
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+    - data:
+        answer: '{{#recall.reply#}}'
+        desc: ''
         selected: false
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-        width: 244
-      - data:
-          answer: '{{#bartender.text#}}'
-          desc: ''
-          selected: false
-          title: 直接回复
-          type: answer
-          variables: []
-        height: 103
-        id: answer
-        position:
-          x: 1280
-          y: 250
-        positionAbsolute:
-          x: 1280
-          y: 250
-        selected: false
-        sourcePosition: right
-        targetPosition: left
-        type: custom
-        width: 244
-    viewport:
-      x: 0
-      y: 0
-      zoom: 0.7
+        title: 直接回复
+        type: answer
+        variables: []
+      height: 100
+      id: answer
+      position:
+        x: 930
+        y: 260
+      positionAbsolute:
+        x: 930
+        y: 260
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 244
+  rag_pipeline_variables: []

@@ -1,7 +1,7 @@
 """调酒逻辑：把客人今晚说的话，调成一杯有名字的酒。
 
 输入是 seekdb 混合检索出的「客人记忆」与「风味卡」，
-输出是可直接展示的 Markdown 草稿（Dify 的 LLM 节点只负责润色，不负责编造）。
+输出是可直接展示的 Markdown 文本（完全依据 seekdb 检索结果生成，不编造）。
 """
 
 from __future__ import annotations

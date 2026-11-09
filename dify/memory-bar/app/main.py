@@ -130,6 +130,7 @@ def recall(req: RecallRequest) -> dict:
         return {
             "user_id": req.user_id,
             "intent": result["intent"],
+            "reply": result["draft"],
             "draft": result["draft"],
             "cocktail": None,
             "matches": recent,
@@ -145,6 +146,7 @@ def recall(req: RecallRequest) -> dict:
         return {
             "user_id": req.user_id,
             "intent": result["intent"],
+            "reply": result["draft"],
             "draft": result["draft"],
             "cocktail": None,
             "matches": memories,
@@ -164,6 +166,7 @@ def recall(req: RecallRequest) -> dict:
     return {
         "user_id": req.user_id,
         "intent": result["intent"],
+        "reply": result["draft"],
         "draft": result["draft"],
         "cocktail": result["cocktail"],
         "matches": memories,

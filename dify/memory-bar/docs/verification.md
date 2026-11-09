@@ -11,7 +11,7 @@
 | seekdb | `5.7.25-OceanBase seekdb-v1.4.0.0`，监听 `127.0.0.1:2881` |
 | 向量模型 | `bge-small-zh-v1.5`，ONNX Runtime CPU，512 维，CLS pooling + L2 归一化 |
 | 服务框架 | FastAPI + uvicorn，监听 `127.0.0.1:8787` |
-| Dify | DSL 版本 0.1.5，`advanced-chat` 模式（评审在 Dify 中导入后使用） |
+| Dify | DSL 版本 0.7.0（Dify 1.18 导出结构），`advanced-chat` 模式（评审在 Dify 中导入后使用） |
 
 ## 2. 复现步骤
 
@@ -134,14 +134,23 @@ Q: 打烊吧，晚安
 ## 6. Dify DSL 结构自检
 
 ```text
-kind app version 0.1.5 mode advanced-chat
-nodes ['start', 'recall', 'bartender', 'remember', 'answer']
+kind app version 0.7.0 mode advanced-chat
+nodes ['start', 'recall', 'remember', 'answer']
+edges ['start->recall', 'recall->remember', 'remember->answer']
+http_json_body_items {'recall': 1, 'remember': 1}
+env ['BAR_BASE_URL']
 edges_ok True
 ```
 
 Dify 端为可视化导入，需在评审环境执行（本机未安装 Docker 版 Dify）：
 
 1. 导入 `dsl/midnight_memory_bar.yml`；
-2. 按 Dify 部署方式改两个 HTTP 节点的主机名（Docker：`host.docker.internal`，本机：`127.0.0.1`，Cloud：内网穿透地址）；
-3. 把 LLM 节点切换为环境中已配置的对话模型；
-4. 发布，使用第 5 节的问题逐条体验。
+2. 只改应用环境变量 `BAR_BASE_URL`（Docker：`host.docker.internal`，本机：`127.0.0.1`，Cloud：内网穿透地址）；
+3. 发布，使用第 5 节的问题逐条体验。
+
+DSL 遵循 Dify 1.18 的两条硬约束（否则会报阻断主流程）：
+
+- `http-request` 节点在 `body.type=json` 时，`body.data` 必须**恰好一个条目**，整段 JSON 作为一个 `value`；
+- 节点超时/重试使用新结构（`timeout.connect/read/write`、`retry_config.enabled`），旧版 `max_connect_timeout` 等字段已不再接受。
+
+两个 HTTP 节点均为 `error_strategy: default-value`：后端未启动时跳过失败并继续走完主流程。

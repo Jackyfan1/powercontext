@@ -56,13 +56,12 @@ ORDER BY 0.7 * (1 - cosine_distance(embedding, :vec))
 ### 3.4 Dify 编排
 
 ```
-开始 → 查阅酒柜（HTTP /v1/recall）→ 调酒师阿浮（LLM）→ 封存记忆（HTTP /v1/remember）→ 回复
+开始 → 查阅酒柜（HTTP /v1/recall）→ 封存记忆（HTTP /v1/remember）→ 回复
 ```
 
 - 检索与写入都通过 HTTP 节点完成，Dify 负责会话、变量传递与展示；
-- LLM 节点只做「人格化润色」，提示词明确禁止编造记忆与日期，
-  并规定必须保留酒名、配方、回甘——保证体验稳定；
-- 即使评审环境暂时没有可用模型，也可以直接用 curl 调后端看到完整文案。
+- 调酒文案由后端依据 seekdb 检索结果生成，Dify 侧零模型依赖，导入即可运行；
+- 两个 HTTP 节点均为 `error_strategy: default-value`，后端未启动也不阻断对话（回复会提示启动方式）。
 
 ### 3.5 稳健性
 
@@ -86,6 +85,7 @@ ORDER BY 0.7 * (1 - cosine_distance(embedding, :vec))
 | 向量维度与索引不一致会建表失败 | 维度统一由 `VECTOR_DIM`（默认 512）驱动，编码器与 DDL 共用同一配置 |
 | Dify 容器访问不到宿主机服务 | README 按 Docker / 本机 / Cloud 三种部署给出主机名与内网穿透方案 |
 | 评审机器可能无法下载模型 | 提供 `HF_ENDPOINT` 镜像配置，并实现哈希向量降级，保证可运行性 |
+| 首版 DSL（0.1.5）被判「阻断主要流程」 | Dify 1.18 的 `body.type=json` 只接受一个条目，旧版 timeout/retry 字段也已过期；改为 0.7.0 结构、单条目 JSON、`timeout.connect/read/write` 与 `error_strategy: default-value` 后重新提测 |
 
 ## 6. 后续可做
 
