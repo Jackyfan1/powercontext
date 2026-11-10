@@ -25,7 +25,7 @@ import unicodedata
 from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from pydantic import BaseModel, JsonValue
 from pypdf import PdfReader
@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 PDF_PAGE_SOURCE_NAME = "pdf-page"
 
 _FISCAL_YEAR = re.compile(r"fy(\d{2}|\d{4})")
+_FILING_DETAIL = re.compile(r"(?:\d{2,4}|\d{4}q\d|10k|10q|8k|earnings|dated|q\d)")
 
 _SEARCH_RESULT_LIMIT = 50
 _MAX_QUERY_VARIANTS = 12
@@ -486,10 +487,48 @@ async def _memory_candidates(memory: ScopedMemoryApplication, question: str) -> 
         )
         pdf_pages = tuple(candidate for candidate in candidates if candidate.page_key is not None)
         if pdf_pages:
-            return pdf_pages
+            return _route_documents(question, pdf_pages)
         if candidates:
             return candidates
     return await _searched_candidates(memory, question)
+
+
+def _route_documents(question: str, candidates: tuple[_Candidate, ...], /) -> tuple[_Candidate, ...]:
+    """Keep only the documents the question names, when it names any of them.
+
+    A Memory partition can hold several filings at once. Pages of an unrelated filing then
+    repeat the question's generic vocabulary (``reported``, ``2022``, ``statement``) often
+    enough to crowd the true evidence out of the returned page budget, so the company the
+    question asks about is used as an exact metadata filter instead of a ranking hint.
+    """
+
+    documents = {str(candidate.page_key[2]) for candidate in candidates if isinstance(candidate.page_key, tuple)}
+    if len(documents) < 2:
+        return candidates
+    asked = _comparison_text(question)
+    named = {document for document in documents if (company := _company_text(document)) and company in asked}
+    if not named or len(named) == len(documents):
+        return candidates
+    return tuple(
+        candidate
+        for candidate in candidates
+        if isinstance(candidate.page_key, tuple) and str(candidate.page_key[2]) in named
+    )
+
+
+def _company_text(document_id: str, /) -> str:
+    """Reduce a document identity to the company name it starts with."""
+
+    words = [
+        word
+        for word in re.split(r"[^a-z0-9]+", unquote(document_id).casefold())
+        if word and not _FILING_DETAIL.fullmatch(word)
+    ]
+    return "".join(words)
+
+
+def _comparison_text(value: str, /) -> str:
+    return "".join(re.findall(r"[a-z0-9]+", value.casefold()))
 
 
 async def _searched_candidates(memory: ScopedMemoryApplication, question: str) -> tuple[_Candidate, ...]:
